@@ -68,12 +68,35 @@ class ProbaEstimator(Protocol):
     def predict_proba(self, X: Union[pd.DataFrame, np.ndarray]) -> np.ndarray: ...
 
 
-def make_outcome_estimator(model_type: str, random_state: int = 42) -> ProbaEstimator:
+def make_outcome_estimator(model_type: str, random_state: int = 42, **kwargs) -> ProbaEstimator:
     """
     Factory for baseline outcome models ('rf' or 'glm').
     Returns a calibrated, class-weighted classifier. See docs/helpers.md#make_outcome_estimator
     """
     model_type = model_type.lower()
+
+    if model_type in ("ann", "keras", "nn", "sequential"):
+        try:
+            from .nn_wrappers import KerasBinaryClassifier
+        except Exception as e:
+            raise ImportError(
+                "Neural net support requires the nn extra. "
+                "Install with: pip install iftoolkit[nn]"
+            ) from e
+
+        build_fn = kwargs.pop("build_fn", None)
+        build_kwargs = kwargs.pop("build_kwargs", None)
+
+        if build_fn is None:
+            raise ValueError("For model_type='ann', you must provide build_fn.")
+
+        return KerasBinaryClassifier(
+            build_fn=build_fn,
+            build_kwargs=build_kwargs,
+            random_state=random_state,
+            **kwargs
+        )
+
     if model_type == "rf":
         return RandomForestClassifier(
             n_estimators=700,
