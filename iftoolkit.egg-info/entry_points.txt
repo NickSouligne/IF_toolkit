@@ -1,0 +1,2 @@
+[console_scripts]
+iftoolkit = iftoolkit.cli.main:app

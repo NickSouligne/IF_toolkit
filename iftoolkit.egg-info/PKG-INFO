@@ -1,0 +1,30 @@
+Metadata-Version: 2.4
+Name: iftoolkit
+Version: 0.1.0
+Summary: Intersectional Fairness Toolkit with counterfactual estimation, modeling, and u-value inference.
+Author: Nick S.
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: lightgbm==4.6.0
+Requires-Dist: matplotlib==3.10.7
+Requires-Dist: numpy==2.3.5
+Requires-Dist: pandas==2.3.3
+Requires-Dist: scikit_learn==1.7.2
+Requires-Dist: scipy==1.16.3
+Requires-Dist: seaborn==0.13.2
+Requires-Dist: statsmodels==0.14.5
+Requires-Dist: xgboost==3.1.2
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4; extra == "dev"
+Requires-Dist: pytest-cov>=4.1; extra == "dev"
+Requires-Dist: ruff>=0.4; extra == "dev"
+Requires-Dist: mypy>=1.8; extra == "dev"
+Requires-Dist: pre-commit>=3.5; extra == "dev"
+Requires-Dist: jupyter>=1.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: mkdocs>=1.6; extra == "docs"
+Requires-Dist: mkdocs-material>=9.5; extra == "docs"
+Requires-Dist: mkdocstrings[python]>=0.25; extra == "docs"
+
+# IF-Toolkit
+Toolkit to quantify intersectional biases in risk prediction or classification models

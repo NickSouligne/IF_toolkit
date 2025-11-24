@@ -1,0 +1,37 @@
+README.md
+pyproject.toml
+iftoolkit/__init__.py
+iftoolkit.egg-info/PKG-INFO
+iftoolkit.egg-info/SOURCES.txt
+iftoolkit.egg-info/dependency_links.txt
+iftoolkit.egg-info/entry_points.txt
+iftoolkit.egg-info/requires.txt
+iftoolkit.egg-info/top_level.txt
+iftoolkit/Component1/__init__.py
+iftoolkit/Component1/containers.py
+iftoolkit/Component1/intersectional_metrics.py
+iftoolkit/Component1/plots.py
+iftoolkit/Component1/synthetic_test.py
+iftoolkit/Component1/utilities.py
+iftoolkit/Component2/__init__.py
+iftoolkit/Component2/counterfactual_IF_treatment_driver.py
+iftoolkit/Component2/functions_fairness.py
+iftoolkit/Component2/functions_format.py
+iftoolkit/Component2/functions_plots.py
+iftoolkit/Component2/functions_smallsubgroups.py
+iftoolkit/Component2/Synthetic Data Generation/ex_data_estimation.py
+iftoolkit/Component2/Synthetic Data Generation/ex_data_external.py
+iftoolkit/Component2/Synthetic Data Generation/ex_data_small.py
+iftoolkit/Component3/Fairness.py
+iftoolkit/Component3/__init__.py
+iftoolkit/Component3/estimation_functions.py
+iftoolkit/Component3/helpers.py
+iftoolkit/Component3/model.py
+iftoolkit/Component3/outcome_models.py
+iftoolkit/Component3/plots.py
+iftoolkit/Component3/synthetic_test.py
+tests/struct_test.py
+tests/test_component1.py
+tests/test_component2.py
+tests/test_component3.py
+tests/test_smoke.py
