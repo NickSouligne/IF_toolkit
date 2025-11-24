@@ -7,12 +7,12 @@ name = "iftoolkit"
 version = "0.1.0"
 description = "Intersectional Fairness Toolkit with counterfactual estimation, modeling, and u-value inference."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 authors = [{ name = "Nick S." }]
 dependencies = [
   "lightgbm==4.6.0",
-  "matplotlib>=3.10.7",
-  "numpy>=2.3.5",
+  "matplotlib>=3.5,<3.9",
+  "numpy>=1.22, <2.0",
   "pandas==2.3.3",
   "scikit_learn==1.7.2",
   "scipy==1.16.3",
