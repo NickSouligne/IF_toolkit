@@ -285,8 +285,7 @@ class Model:
         self,
         alpha: float = 0.05,
         m_factor: float = 0.75,
-        delta_uval: float = 0.05,
-        u_mode: str = 'two_sided'
+        delta_uval: float = 0.05
     ):
         """
         Assemble plot data, optional figures, and u-values.
