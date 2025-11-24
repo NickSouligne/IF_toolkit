@@ -9,7 +9,6 @@ description = "Intersectional Fairness Toolkit with counterfactual estimation, m
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [{ name = "Nick S." }]
-
 dependencies = [
   # Core scientific stack (bounded for Py3.9–3.12)
   "numpy>=1.22,<2.1",          # 2.1 drops Py3.9
@@ -45,12 +44,8 @@ docs = [
 [project.scripts]
 iftoolkit = "iftoolkit.cli.main:app"
 
-# --- src/ layout support ---
-[tool.setuptools]
-package-dir = {"" = "src"}
-
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
 
 [tool.ruff]
 line-length = 100
