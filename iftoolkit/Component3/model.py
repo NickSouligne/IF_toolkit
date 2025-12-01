@@ -36,7 +36,8 @@ class Model:
     def __init__(
         self,
         data: pd.DataFrame,
-        model_type: str = "rf",                        
+        model_type: str = "rf",
+        outcome_model_kwargs: Optional[dict] = None,                        
         *,
         outcome_estimator: Optional[object] = None,    
         propensity_estimator: Optional[object] = None,  
@@ -74,6 +75,7 @@ class Model:
         self.treatment_flag = treatment_flag
         self.group_label_map = group_label_map
         self.coeff_map = coeff_map
+        self._outcome_model_kwargs = outcome_model_kwargs or {}
 
         #Internals
         self.A = "A1A2"
@@ -252,6 +254,7 @@ class Model:
         pipe = FairnessPipeline(
             group_col=self.A,
             outcome_col=self.Y,
+            outcome_model_kwargs=self._outcome_model_kwargs,
             covariates=self.covariates,
             estimator=self._outcome_estimator,   
             model_type=self.model_type,

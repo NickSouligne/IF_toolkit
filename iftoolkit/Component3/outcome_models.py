@@ -18,6 +18,7 @@ def build_outcome_models_and_scores(
     model: Optional[ProbaEstimator] = None,
     model_type: str = "rf",
     n_splits: int = 5,
+    outcome_model_kwargs: Optional[dict] = None,
     random_state: int = 42,
     groups_universe: Optional[List[str]] = None,
 ) -> Tuple[pd.DataFrame, float, List[str]]:
@@ -42,7 +43,7 @@ def build_outcome_models_and_scores(
 
     #Wrapper to create new model if none provided
     def _make():
-        return model if model is not None else make_outcome_estimator(model_type, random_state=random_state)
+        return model if model is not None else make_outcome_estimator(model_type, random_state=random_state, outcome_model_kwargs=outcome_model_kwargs or {})
 
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
     factual_pred = np.zeros(len(df), dtype=float)
