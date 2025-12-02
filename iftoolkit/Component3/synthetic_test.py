@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 from sklearn.svm import SVC
 from xgboost import XGBClassifier
-from model import Model
-from Fairness import FairnessPipeline
+from .model import Model
+from .Fairness import FairnessPipeline
 from lightgbm import LGBMClassifier
 from sklearn.linear_model import LogisticRegression
 
@@ -129,7 +129,7 @@ def add_group_propensities(
 # ------------- 3) Run demo through the Model facade -------------
 if __name__ == "__main__":
     #Load data
-    df = pd.read_csv("C:\\Users\\nicks\\Desktop\\src\\iftoolkit\\Component3\\glaucoma_synth_component3.csv")
+    df = pd.read_csv("Counterfactual IF\glaucoma_synth_component3.csv")
 
     #Covariates = everything except protected + outcome
     df["A1A2"] = df.get("A1A2", df["A1"].astype(str) + df["A2"].astype(str)).astype(str)

@@ -39,8 +39,8 @@ if __name__ == "__main__":
     #Define model parameters for lightGBM
     MODEL_PARAMS = {
         "objective": "binary",
-        "n_estimators": 700,
-        "num_leaves": 64,
+        "n_estimators": 600,
+        "num_leaves": 31,
         "learning_rate": 0.05,
         "max_depth": -1,
         "subsample": 0.8,

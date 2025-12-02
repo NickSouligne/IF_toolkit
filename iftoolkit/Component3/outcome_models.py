@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
-from helpers import _as_str_groups, _clip_probs, choose_threshold_youden, _add_group_dummies, ProbaEstimator, make_outcome_estimator
+from .helpers import _as_str_groups, _clip_probs, choose_threshold_youden, _add_group_dummies, ProbaEstimator, make_outcome_estimator
 
 
 
