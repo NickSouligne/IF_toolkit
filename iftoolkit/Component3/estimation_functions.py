@@ -125,7 +125,6 @@ def analysis_estimation(
     data: pd.DataFrame,
     group_col: str,
     outcome_col: str,
-    outcome_model_kwargs: Optional[dict],
     covariates: List[str],
     cutoff: Optional[float] = None,       #if None, choose Youden on OOF factual
     model: Optional[ProbaEstimator] = None,
@@ -152,7 +151,7 @@ def analysis_estimation(
         data, group_col, outcome_col, covariates,
         model=model, model_type=model_type,
         n_splits=n_splits, random_state=random_state,
-        groups_universe=groups_universe, outcome_model_kwargs=outcome_model_kwargs
+        groups_universe=groups_universe,
     )
     tau = float(cutoff) if cutoff is not None else tau_obs
 

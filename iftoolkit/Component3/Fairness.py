@@ -22,7 +22,6 @@ class FairnessPipeline:
         covariates: List[str],
         estimator: Optional[ProbaEstimator] = None,
         model_type: str = "rf",
-        outcome_model_kwargs: Optional[dict] = None,
         n_splits: int = 5,
         random_state: int = 42,
         method: str = "sr"  #sr (single robust) or 'dr' (doubly robust)
@@ -35,7 +34,6 @@ class FairnessPipeline:
         self.n_splits = n_splits
         self.random_state = random_state
         self.method = method
-        self.outcome_model_kwargs = outcome_model_kwargs or {}
         self.results_: Optional[Dict[str, object]] = None
 
     def fit(
@@ -53,7 +51,6 @@ class FairnessPipeline:
             data=data,
             group_col=self.group_col,
             outcome_col=self.outcome_col,
-            outcome_model_kwargs=self.outcome_model_kwargs,
             covariates=self.covariates,
             cutoff=cutoff,
             model=self.estimator,
