@@ -114,22 +114,58 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
 
     table_null_delta = None
     table_uval = None
-    if 'table_null' in results and isinstance(results['table_null'], dict) and results['table_null']:
-        keep = ['avg_neg', 'avg_pos', 'max_neg', 'max_pos', 'var_neg', 'var_pos']
-        est_named_obs = pd.DataFrame(list({k: v for k, v in est_named.items() if k in keep}.items()), columns=['stat', 'value_obs'])
-        null_df = pd.DataFrame(results['table_null'])
-        null_subset = null_df[[c for c in keep if c in null_df.columns]]
-        table_null_delta = null_subset.melt(var_name='stat', value_name='value_null').merge(est_named_obs, on='stat', how='left')
-        table_null_delta['obs_minus_null'] = table_null_delta['value_obs'] - table_null_delta['value_null']
 
-        table_uval = pd.DataFrame({
-            'avg_neg': [_uval(null_df.get('avg_neg', pd.Series(dtype=float)), est_named.get('avg_neg', np.nan), delta_uval )],
-            'avg_pos': [_uval(null_df.get('avg_pos', pd.Series(dtype=float)), est_named.get('avg_pos', np.nan), delta_uval )],
-            'max_neg': [_uval(null_df.get('max_neg', pd.Series(dtype=float)), est_named.get('max_neg', np.nan), delta_uval )],
-            'max_pos': [_uval(null_df.get('max_pos', pd.Series(dtype=float)), est_named.get('max_pos', np.nan), delta_uval )],
-            'var_neg': [_uval(null_df.get('var_neg', pd.Series(dtype=float)), est_named.get('var_neg', np.nan), delta_uval )],
-            'var_pos': [_uval(null_df.get('var_pos', pd.Series(dtype=float)), est_named.get('var_pos', np.nan), delta_uval )],
-        }).round(3)
+    table_null_raw = results.get("table_null", None)
+    if table_null_raw is not None:
+        # Normalize to a DataFrame
+        if isinstance(table_null_raw, pd.DataFrame):
+            null_df = table_null_raw.copy()
+        elif isinstance(table_null_raw, dict):
+            null_df = pd.DataFrame(table_null_raw)
+        else:
+            # last resort: try to turn it into a DataFrame
+            null_df = pd.DataFrame(table_null_raw)
+
+        keep = ["avg_neg", "avg_pos", "max_neg", "max_pos", "var_neg", "var_pos"]
+
+        est_named_obs = pd.DataFrame(
+            [(k, v) for k, v in est_named.items() if k in keep],
+            columns=["stat", "value_obs"],
+        )
+
+        null_subset = null_df[[c for c in keep if c in null_df.columns]]
+        table_null_delta = (
+            null_subset
+            .melt(var_name="stat", value_name="value_null")
+            .merge(est_named_obs, on="stat", how="left")
+        )
+        table_null_delta["obs_minus_null"] = (
+            table_null_delta["value_obs"] - table_null_delta["value_null"]
+        )
+
+        def _uval(vec_null: pd.Series, obs: float, delta: float) -> float:
+            v = pd.to_numeric(vec_null, errors="coerce").to_numpy()
+            v = v[np.isfinite(v)]
+            if not np.isfinite(obs) or v.size == 0:
+                return np.nan
+            return float(np.mean(obs - v > delta))
+
+        table_uval = pd.DataFrame(
+            {
+                "avg_neg": [_uval(null_df.get("avg_neg", pd.Series(dtype=float)),
+                                est_named.get("avg_neg", np.nan), delta_uval)],
+                "avg_pos": [_uval(null_df.get("avg_pos", pd.Series(dtype=float)),
+                                est_named.get("avg_pos", np.nan), delta_uval)],
+                "max_neg": [_uval(null_df.get("max_neg", pd.Series(dtype=float)),
+                                est_named.get("max_neg", np.nan), delta_uval)],
+                "max_pos": [_uval(null_df.get("max_pos", pd.Series(dtype=float)),
+                                est_named.get("max_pos", np.nan), delta_uval)],
+                "var_neg": [_uval(null_df.get("var_neg", pd.Series(dtype=float)),
+                                est_named.get("var_neg", np.nan), delta_uval)],
+                "var_pos": [_uval(null_df.get("var_pos", pd.Series(dtype=float)),
+                                est_named.get("var_pos", np.nan), delta_uval)],
+            }
+        ).round(3)
 
         #6 panel histogram
         if table_null_delta is not None and table_uval is not None:
@@ -145,7 +181,6 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
             fig, axes = plt.subplots(3, 2, figsize=(15, 18))
 
             for ax, (stat, title) in zip(axes.flatten(), stats_grid):
-
                 vals = (
                     table_null_delta.loc[table_null_delta["stat"] == stat, "obs_minus_null"]
                     .dropna()
@@ -153,22 +188,23 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
                 )
 
                 if vals.size > 0:
-                    # KDE, clipped so density is only defined up to 0
+                    # KDE without clipping; full distribution
                     sns.kdeplot(
                         vals,
                         ax=ax,
                         fill=True,
                         bw_adjust=0.5,
                         color="steelblue",
-                        clip=(-np.inf, 0),  # no mass to the right of 0
                     )
 
-                    # x-axis: left from data, right bounded at 0
-                    xmin = np.percentile(vals, 1.0)  # trim extreme left tail a bit
-                    xmax = 0.0
+                    # Choose data-driven limits, then expand to include 0
+                    lo = np.percentile(vals, 1.0)
+                    hi = np.percentile(vals, 99.0)
+                    xmin = min(lo, 0.0)
+                    xmax = max(hi, 0.0)
                     ax.set_xlim([xmin, xmax])
 
-                    # vertical red bar at 0, labeled with u-value
+                    # vertical red bar at 0, labeled with the u-value
                     uval = float(table_uval[stat].values[0])
                     annotate_plot(ax, uval, x_pos=0.0)
 
