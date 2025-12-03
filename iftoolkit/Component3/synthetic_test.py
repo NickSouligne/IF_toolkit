@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 from sklearn.svm import SVC
 from xgboost import XGBClassifier
-from .model import Model
-from .Fairness import FairnessPipeline
+from model import Model
+from Fairness import FairnessPipeline
 from lightgbm import LGBMClassifier
 from sklearn.linear_model import LogisticRegression
 
@@ -129,7 +129,7 @@ def add_group_propensities(
 # ------------- 3) Run demo through the Model facade -------------
 if __name__ == "__main__":
     #Load data
-    df = pd.read_csv("Counterfactual IF\glaucoma_synth_component3.csv")
+    df = pd.read_csv("iftoolkit\\Component3\\glaucoma_synth_component3.csv")
 
     #Covariates = everything except protected + outcome
     df["A1A2"] = df.get("A1A2", df["A1"].astype(str) + df["A2"].astype(str)).astype(str)
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     print("\n[m_sr | LGBM] Point estimates")
     print(m_sr.summarize().sort_values("stat").to_string(index=False))
 
-    _, _, uvals_plugin = m_sr.plots(alpha=0.05, delta_uval=0.10, u_mode="one_sided")
+    _, _, uvals_plugin = m_sr.plots(alpha=0.05, delta_uval=0.10)
     print("\n[PLUGIN | LGBM] U-values (aggregate)")
     print(uvals_plugin.to_string(index=False))
 
@@ -231,6 +231,6 @@ if __name__ == "__main__":
     print("\n[DR | LGBM] Point estimates")
     print(m_dr.summarize().sort_values("stat").to_string(index=False))
 
-    _, _, uvals_dr = m_dr.plots(alpha=0.05, delta_uval=0.10, u_mode="one_sided")
+    _, _, uvals_dr = m_dr.plots(alpha=0.05, delta_uval=0.10)
     print("\n[DR | LGBM] U-values (aggregate)")
     print(uvals_dr.to_string(index=False))

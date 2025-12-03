@@ -3,8 +3,8 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
-from .helpers import _as_str_groups, ProbaEstimator
-from .outcome_models import build_outcome_models_and_scores, get_defs_from_rates, compute_cf_group_rates_dr, compute_cf_group_rates_sr
+from helpers import _as_str_groups, ProbaEstimator
+from outcome_models import build_outcome_models_and_scores, get_defs_from_rates, compute_cf_group_rates_dr, compute_cf_group_rates_sr
 
 
 #-------Estimation wrappers -----------
@@ -276,4 +276,3 @@ def ci_trunc(ci_result: pd.DataFrame, type2: str) -> pd.DataFrame:
         res['low_trans'] = res['low_trans'].clip(lower=0)
         res['high_trans'] = res['high_trans'].clip(upper=1)
     return res
-

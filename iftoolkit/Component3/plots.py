@@ -2,27 +2,32 @@ from __future__ import annotations
 from typing import Dict, Optional
 import numpy as np
 import pandas as pd
-from .estimation_functions import ci_tint, ci_trunc, get_bs_rescaled
+from estimation_functions import ci_tint, ci_trunc, get_bs_rescaled
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 
 #---- Plotting helpers -----
 
-def annotate_plot(ax: plt.Axes, value: float) -> None:
+def annotate_plot(ax: plt.Axes, u_value: float, x_pos: float = 0.0) -> None:
     """
     Mark a vertical u-value reference on an axis.
 
     Draws a dashed vline at `value` and labels it “u-value = …”.
     See docs/plots.md#annotate_plot
     """
-    ax.axvline(value, linestyle='--')
+    ax.axvline(x_pos, linestyle="--", color="red")
     ymax = ax.get_ylim()[1]
-    ax.annotate(f'u-value = {value:.3f}',
-                xy=(value, ymax * 0.8),
-                xytext=(value, ymax * 0.8),
-                ha='right',
-                arrowprops=dict(arrowstyle='->'))
+    ax.annotate(
+        f"u-value = {u_value:.3f}",
+        xy=(x_pos, ymax * 0.8),
+        xytext=(x_pos, ymax * 0.8),
+        ha="right",
+        va="center",
+        bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="black", lw=0.5),
+        arrowprops=dict(arrowstyle="->", lw=0.5),
+    )
 
 
 def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha: float = 0.05, m_factor: float = 0.75, delta_uval: float = 0.10,):
@@ -126,23 +131,53 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
             'var_pos': [_uval(null_df.get('var_pos', pd.Series(dtype=float)), est_named.get('var_pos', np.nan), delta_uval )],
         }).round(3)
 
-        #6-panel histogram of obs-null with vertical u-value marker
-        try:
-            stats_grid = ['avg_neg', 'max_neg', 'var_neg', 'avg_pos', 'max_pos', 'var_pos']
-            fig = plt.figure(figsize=(14, 16))
-            for i, s in enumerate(stats_grid, start=1):
-                ax = fig.add_subplot(3, 2, i)
-                sub = table_null_delta[table_null_delta['stat'] == s]['obs_minus_null'].dropna().to_numpy()
-                if sub.size > 0:
-                    ax.hist(sub, bins=30, density=True)
-                    if table_uval is not None and s in table_uval.columns:
-                        annotate_plot(ax, s, float(table_uval[s].values[0]))
-                    ax.set_title(s)
-                    ax.set_xlabel("Obs - Null")
-                    ax.set_ylabel("Density")
+        #6 panel histogram
+        if table_null_delta is not None and table_uval is not None:
+            stats_grid = [
+                ("avg_neg", "Average (negative)"),
+                ("max_neg", "Maximum (negative)"),
+                ("var_neg", "Variational (negative)"),
+                ("avg_pos", "Average (positive)"),
+                ("max_pos", "Maximum (positive)"),
+                ("var_pos", "Variational (positive)"),
+            ]
+
+            fig, axes = plt.subplots(3, 2, figsize=(15, 18))
+
+            for ax, (stat, title) in zip(axes.flatten(), stats_grid):
+
+                vals = (
+                    table_null_delta.loc[table_null_delta["stat"] == stat, "obs_minus_null"]
+                    .dropna()
+                    .to_numpy()
+                )
+
+                if vals.size > 0:
+                    # KDE, clipped so density is only defined up to 0
+                    sns.kdeplot(
+                        vals,
+                        ax=ax,
+                        fill=True,
+                        bw_adjust=0.5,
+                        color="steelblue",
+                        clip=(-np.inf, 0),  # no mass to the right of 0
+                    )
+
+                    # x-axis: left from data, right bounded at 0
+                    xmin = np.percentile(vals, 1.0)  # trim extreme left tail a bit
+                    xmax = 0.0
+                    ax.set_xlim([xmin, xmax])
+
+                    # vertical red bar at 0, labeled with u-value
+                    uval = float(table_uval[stat].values[0])
+                    annotate_plot(ax, uval, x_pos=0.0)
+
+                ax.set_title(title, fontsize=14)
+                ax.set_xlabel("Obs. − Null")
+                ax.set_ylabel("Density")
+
             plt.tight_layout()
-        except Exception:
-            pass
+            plt.show()
 
     #per-group scatter (with error bars if CI present)
     try:

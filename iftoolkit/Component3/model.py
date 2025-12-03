@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier
-from .Fairness import FairnessPipeline   
-from .plots import get_plots
+from Fairness import FairnessPipeline   
+from plots import get_plots
 from sklearn.base import clone
 
 
@@ -303,6 +303,3 @@ class Model:
             m_factor=m_factor,
             delta_uval=delta_uval
         )
-
-
-
