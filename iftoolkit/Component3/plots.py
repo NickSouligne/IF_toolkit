@@ -116,6 +116,11 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
     table_uval = None
 
     table_null_raw = results.get("table_null", None)
+
+    print("Sanity check, do we have the null table")
+    print(table_null_raw)
+
+
     if table_null_raw is not None:
         # Normalize to a DataFrame
         if isinstance(table_null_raw, pd.DataFrame):
@@ -126,6 +131,7 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
             # last resort: try to turn it into a DataFrame
             null_df = pd.DataFrame(table_null_raw)
 
+        print("double checking table null delta")
         print(table_null_delta)
 
         keep = ["avg_neg", "avg_pos", "max_neg", "max_pos", "var_neg", "var_pos"]
