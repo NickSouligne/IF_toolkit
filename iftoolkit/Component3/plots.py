@@ -55,6 +55,10 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
     ci_trunc_cfpr = pd.DataFrame()
     ci_trunc_cfnr = pd.DataFrame()
 
+    print("Sanity Check before IF statement")
+    print("do we have boot out", results['boot_out'])
+    print("What is dtype of boot out", type(results['boot_out']))
+
     if 'boot_out' in results and isinstance(results['boot_out'], list) and results['boot_out']:
         bs_rescaled = get_bs_rescaled(results['boot_out'], est_named)
 
