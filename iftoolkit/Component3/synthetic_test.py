@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 from sklearn.svm import SVC
 from xgboost import XGBClassifier
-from model import Model
-from Fairness import FairnessPipeline
+from .model import Model
+from .Fairness import FairnessPipeline
 from lightgbm import LGBMClassifier
 from sklearn.linear_model import LogisticRegression
 
