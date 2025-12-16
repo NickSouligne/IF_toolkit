@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import confusion_matrix
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neural_network import MLPClassifier
@@ -29,7 +29,9 @@ def _get_model(model_type: str, model_params: Optional[Dict[str, Any]]):
     mt = model_type.lower()
     params = model_params or {}
     if mt in ("logreg", "logistic", "lr"):
-        return LogisticRegression(max_iter=1000, **_maybe_balanced(params))
+        return LogisticRegression(max_iter = params.pop("max_iter", 1000), **_maybe_balanced(params))
+    if mt in ("lr_cv", "log_cv", "logreg_cv", "logreg_crossval"):
+        return LogisticRegressionCV(max_iter = params.pop("max_iter", 1000), **_maybe_balanced(params))
     if mt in ("rf", "random_forest", "randomforest"):
         return RandomForestClassifier(**_maybe_balanced(params))
     if mt in ("dt", "decision_tree", "decisiontree"):
