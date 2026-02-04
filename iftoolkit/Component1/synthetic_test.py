@@ -49,7 +49,7 @@ if __name__ == "__main__":
         "class_weight": "balanced"  
     }   
     #Run the intersectional fairness evaluation
-    res, figs = evaluate_intersectional_fairness(
+    res, figs, inter = evaluate_intersectional_fairness(
         df=df,
         outcome="glaucoma_intervention",
         protected_1="Race",
@@ -62,7 +62,9 @@ if __name__ == "__main__":
         threshold=0.5,
         require_class_balance=True, #Require at least one positive and negative in each group for metrics
         min_group_size=20,  #Minimum size of each intersectional group to be included
-        make_plots=True
+        make_plots=True,
+        return_intermediates=True,
+        return_non_intersectional=True
     )
 
     print("Model:", res.model)
@@ -72,6 +74,8 @@ if __name__ == "__main__":
     print("Equal opportunity gap (TPR gap):", res.equal_opportunity_gap)
     print("\nPer-group metrics:")
     print(res.per_group_df)
+    print(inter["non_intersectional"]["Race"].per_group_df)
+    print(inter["non_intersectional"]["Gender"].demographic_parity_gap)
 
     # Show plots when running as a script
     for name, fig in figs.items():

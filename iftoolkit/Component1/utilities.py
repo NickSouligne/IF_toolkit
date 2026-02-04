@@ -43,7 +43,7 @@ def _get_model(model_type: str, model_params: Optional[Dict[str, Any]]):
     if mt in ("lgbm", "lightgbm"):
         from lightgbm import LGBMClassifier
         return LGBMClassifier(**params)
-    raise ValueError("Unsupported model_type: use one of: logreg, rf, dt, lgbm, nn")
+    raise ValueError("Unsupported model_type: use one of: logreg, logreg_cv, rf, dt, lgbm, nn")
 
 #Helper function to get probabilities from a fitted model
 def _as_prob(estimator, X):

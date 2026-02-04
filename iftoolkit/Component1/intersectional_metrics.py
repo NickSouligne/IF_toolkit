@@ -29,6 +29,7 @@ def evaluate_intersectional_fairness(
     make_plots: bool = True,
     *,
     return_intermediates = False,
+    return_non_intersectional: bool = False,
     min_group_size: int = 0,           #drop groups with n < this
     require_class_balance: bool = False #require ≥1 pos & ≥1 neg per group
 ) -> Tuple[FairnessResults, Dict[str, plt.Figure]]:
@@ -37,6 +38,57 @@ def evaluate_intersectional_fairness(
     for col in (outcome, protected_1, protected_2):
         if col not in df.columns:
             raise KeyError(f"Column '{col}' not found in df.")
+        
+
+    def _compute_fairness_for_groups(group_labels, *, dropped_groups_local=None, kept_summary_local=None) -> FairnessResults:
+        g_series_local = pd.Series(group_labels, index=np.arange(len(group_labels)))
+        group_rates_local = _compute_group_rates(y_true=y_test, y_pred=y_hat, groups=g_series_local)
+        df_groups_local = pd.DataFrame([gr.__dict__ for gr in group_rates_local])
+
+        df_groups_filtered_local = df_groups_local.copy()
+        if min_group_size > 0:
+            df_groups_filtered_local = df_groups_filtered_local[df_groups_filtered_local["n"] >= min_group_size]
+        if require_class_balance:
+            df_groups_filtered_local = df_groups_filtered_local[
+                (df_groups_filtered_local["pos_true"] >= 1) & (df_groups_filtered_local["neg_true"] >= 1)
+            ]
+
+        if df_groups_filtered_local.empty:
+            df_for_metrics_local = df_groups_local.copy()
+        else:
+            df_for_metrics_local = df_groups_filtered_local
+
+        if df_for_metrics_local.empty:
+            privileged_group_local = None
+            tpr_priv_local = fpr_priv_local = np.nan
+        else:
+            privileged_group_local = df_for_metrics_local.sort_values("n", ascending=False).iloc[0]["group"]
+            tpr_priv_local = float(df_for_metrics_local.loc[df_for_metrics_local["group"] == privileged_group_local, "tpr"].iloc[0])
+            fpr_priv_local = float(df_for_metrics_local.loc[df_for_metrics_local["group"] == privileged_group_local, "fpr"].iloc[0])
+
+        df_disp_local = df_for_metrics_local.copy()
+        df_disp_local["eo_diff"] = tpr_priv_local - df_disp_local["tpr"]
+        df_disp_local["eod_tpr_diff"] = tpr_priv_local - df_disp_local["tpr"]
+        df_disp_local["eod_fpr_diff"] = df_disp_local["fpr"] - fpr_priv_local
+        df_disp_local["eod_max_abs"] = np.maximum(df_disp_local["eod_tpr_diff"].abs(), df_disp_local["eod_fpr_diff"].abs())
+        per_group_with_diffs_local = df_disp_local.reset_index(drop=True)
+
+        def _gap(s: pd.Series) -> float:
+            s = s.replace([np.inf, -np.inf], np.nan).dropna()
+            return float(s.max() - s.min()) if not s.empty else float("nan")
+
+        return FairnessResults(
+            model=mt,
+            groups=[GroupRates(**row) for row in df_for_metrics_local.to_dict(orient="records")],
+            demographic_parity_gap=_gap(df_for_metrics_local["positive_rate"]),
+            equalized_odds_gap_tpr=_gap(df_for_metrics_local["tpr"]),
+            equalized_odds_gap_fpr=_gap(df_for_metrics_local["fpr"]),
+            equal_opportunity_gap=_gap(df_for_metrics_local["tpr"]),
+            per_group_df=per_group_with_diffs_local,
+            dropped_groups=dropped_groups_local or [],
+            kept_groups_summary=(kept_summary_local if kept_summary_local is not None else pd.DataFrame({"group": [], "n": []})),
+        )
+
 
 
     #Filter out small intersectional groups pre-training
@@ -120,9 +172,16 @@ def evaluate_intersectional_fairness(
         pipe = Pipeline([("prep", pre_sparse), ("model", clf)])
 
     #Split & train
-    X_train, X_test, y_train, y_test, g_train, g_test = train_test_split(
-        X, y, inter, test_size=test_size, random_state=random_state, stratify=y
+    p1 = df[protected_1].astype(str).values
+    p2 = df[protected_2].astype(str).values
+
+    X_train, X_test, y_train, y_test, g_train, g_test, p1_train, p1_test, p2_train, p2_test = train_test_split(
+        X, y, inter, p1, p2,
+        test_size=test_size, random_state=random_state, stratify=y
     )
+    #X_train, X_test, y_train, y_test, g_train, g_test = train_test_split(
+    #    X, y, inter, test_size=test_size, random_state=random_state, stratify=y
+    #)
     pipe.fit(X_train, y_train)
 
     #Predict on test
@@ -195,6 +254,7 @@ def evaluate_intersectional_fairness(
         print("Warning: All groups were filtered out by min_group_size or require_class_balance. "
               "Returning metrics on unfiltered groups, which may include NaN rates.")
 
+    """
     results = FairnessResults(
         model=mt,
         groups=[GroupRates(**row) for row in df_for_metrics.to_dict(orient="records")],
@@ -206,7 +266,23 @@ def evaluate_intersectional_fairness(
         dropped_groups=dropped_groups,
         kept_groups_summary=kept_summary.reset_index().rename(columns={"g": "group"}),
     )
+    """
 
+    results = _compute_fairness_for_groups(
+        g_test,
+        dropped_groups_local=dropped_groups,
+        kept_summary_local=kept_summary.reset_index(drop=True),
+    )
+
+    non_intersectional = None
+    if return_non_intersectional:
+        p1_summary = pd.Series(p1, name="group").value_counts().rename("n").reset_index().rename(columns={"index": "group"})
+        p2_summary = pd.Series(p2, name="group").value_counts().rename("n").reset_index().rename(columns={"index": "group"})
+
+        non_intersectional = {
+            protected_1: _compute_fairness_for_groups(p1_test, kept_summary_local=p1_summary),
+            protected_2: _compute_fairness_for_groups(p2_test, kept_summary_local=p2_summary),
+        }
 
     #Plots use the same filtered view
     figs: Dict[str, plt.Figure] = {}
@@ -247,6 +323,7 @@ def evaluate_intersectional_fairness(
                 "test_size": float(test_size),
                 "model_type": mt,
             },
+            "non_intersectional": non_intersectional,
         }
        return results, figs, intermediates
 
