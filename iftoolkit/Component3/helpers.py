@@ -54,6 +54,14 @@ def _add_group_dummies(
         dummies.loc[g_str == g, f"{prefix}{g}"] = 1
     return pd.concat([X, dummies], axis=1)
 
+def _init_group_dummy_frame(
+    index,
+    groups: List[str],
+    prefix: str = "G__",
+    dtype=np.uint8,
+):
+    cols = [f"{prefix}{g}" for g in groups]
+    return pd.DataFrame(0, index=index, columns=cols, dtype=dtype)
 
 
 #---- Estimator Protocols ----

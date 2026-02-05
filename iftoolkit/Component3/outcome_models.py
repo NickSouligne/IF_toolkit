@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
-from .helpers import _as_str_groups, _clip_probs, choose_threshold_youden, _add_group_dummies, ProbaEstimator, make_outcome_estimator
+from .helpers import _as_str_groups, _clip_probs, _init_group_dummy_frame, choose_threshold_youden, _add_group_dummies, ProbaEstimator, make_outcome_estimator
 
 
 
@@ -61,11 +61,26 @@ def build_outcome_models_and_scores(
         clf.fit(X_tr_aug, y[train_idx])
 
         #Predict counterfactual risk for each g on test fold
-        for g in groups:
-            A_te_g = pd.Series(g, index=X_te.index)
-            X_te_aug_g = _add_group_dummies(X_te, A_te_g, groups)
-            X_te_aug_g = X_te_aug_g.reindex(columns=X_tr_aug.columns, fill_value=0)
-            p = clf.predict_proba(X_te_aug_g)[:, 1]
+        X_te_cov = X_te.copy()
+        D_te = _init_group_dummy_frame(X_te_cov.index, groups)
+        X_te_aug = pd.concat([X_te_cov, D_te], axis=1)
+        X_te_aug = X_te_aug.reindex(columns=X_tr_aug.columns, fill_value=0)
+
+        # Locate dummy block
+        dummy_cols = [c for c in X_te_aug.columns if c.startswith("G__")]
+        dummy_start = X_te_aug.columns.get_loc(dummy_cols[0])
+        dummy_end = dummy_start + len(dummy_cols)
+
+        # NumPy view (no copy)
+        X_vals = X_te_aug.to_numpy(copy=False)
+
+        for j, g in enumerate(groups):
+            # zero all group dummies
+            X_vals[:, dummy_start:dummy_end] = 0
+            # activate this group
+            X_vals[:, dummy_start + j] = 1
+
+            p = clf.predict_proba(X_vals)[:, 1]
             df.loc[X_te.index, f"muY_{g}"] = p
 
         #factual out of fold (OOF) probability for τ
