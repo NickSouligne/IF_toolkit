@@ -4,12 +4,126 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
-from .helpers import _as_str_groups, _clip_probs, _init_group_dummy_frame, choose_threshold_youden, _add_group_dummies, ProbaEstimator, make_outcome_estimator
+from sklearn.base import clone
+from .helpers import _as_str_groups, _clip_probs, choose_threshold_youden, _add_group_dummies, ProbaEstimator, make_outcome_estimator
 
 
 
 #-------Cross-fitting & muY outputs -----------
 
+def build_outcome_models_and_scores(
+    data: pd.DataFrame,
+    group_col: str,             # e.g., 'A1A2' (string codes)
+    outcome_col: str,           # e.g., 'Y' (binary 0/1)
+    covariates: List[str],
+    model: Optional[ProbaEstimator] = None,
+    model_type: str = "rf",
+    n_splits: int = 5,
+    random_state: int = 42,
+    groups_universe: Optional[List[str]] = None,
+    precomputed_splits: Optional[List[Tuple[np.ndarray, np.ndarray]]] = None,
+) -> Tuple[pd.DataFrame, float, List[str]]:
+    """
+    Refactor: implements
+      1) precomputed splits (optional) to avoid re-creating KFold objects repeatedly
+      2) stacked inference: one predict_proba call per fold (instead of K calls)
+
+    Output semantics match prior version:
+      - df contains muY_<g> columns filled OOF
+      - tau chosen by Youden on factual OOF preds
+      - groups returned in stable sorted order
+    """
+    df = data.copy()
+
+    # --- basic arrays (avoid repeated pandas slicing in inner loops) ---
+    y = df[outcome_col].astype(int).to_numpy()
+    X_all = df[covariates].to_numpy()
+    A_all = _as_str_groups(df[group_col])
+
+    # stable group universe
+    groups = sorted(groups_universe or A_all.unique().tolist())
+    K = len(groups)
+    P = X_all.shape[1]
+
+    # allocate mu columns
+    mu_cols = [f"muY_{g}" for g in groups]
+    for c in mu_cols:
+        df[c] = np.nan
+
+    # mapping for factual selection
+    colpos = {g: j for j, g in enumerate(groups)}
+
+    # model factory / cloning behavior
+    def _make():
+        if model is None:
+            return make_outcome_estimator(model_type, random_state=random_state)
+        # clone sklearn estimators when possible so each fold is independent
+        try:
+            return clone(model)
+        except Exception:
+            return model
+
+    # --- precompute splits if not provided ---
+    if precomputed_splits is None:
+        skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        splits = [(tr, te) for tr, te in skf.split(X_all, y)]
+    else:
+        splits = precomputed_splits
+        if len(splits) != n_splits:
+            # don’t hard-fail; just allow any list length and proceed
+            pass
+
+    factual_pred = np.zeros(len(df), dtype=float)
+
+    # --- main CV loop ---
+    for fold_id, (train_idx, test_idx) in enumerate(splits, start=1):
+        X_tr = X_all[train_idx]   # (n_tr, P)
+        X_te = X_all[test_idx]    # (n_te, P)
+        A_tr = A_all.iloc[train_idx].to_numpy()
+        A_te = A_all.iloc[test_idx].to_numpy()
+        n_te = X_te.shape[0]
+
+        # ---- Build augmented TRAIN matrix: [X, one-hot(A)] ----
+        # one-hot: rows correspond to observed A in training data
+        G_tr = np.zeros((X_tr.shape[0], K), dtype=np.uint8)
+        # map each A_tr to its column index
+        j_tr = np.array([colpos[a] for a in A_tr], dtype=int)
+        G_tr[np.arange(X_tr.shape[0]), j_tr] = 1
+        X_tr_aug = np.concatenate([X_tr, G_tr], axis=1)  # (n_tr, P+K)
+
+        clf = _make()
+        clf.fit(X_tr_aug, y[train_idx])
+
+        # ---- Stacked TEST inference: one predict_proba call for all groups ----
+        # We want predictions for every test row under every group:
+        # X_te_stack: (K*n_te, P)
+        # G_te_stack: (K*n_te, K) with block one-hot for each g
+        X_te_stack = np.tile(X_te, (K, 1))  # repeat X_te K times
+
+        # Each identity row repeated n_te times yields blocks:
+        # [e0 repeated n_te; e1 repeated n_te; ...]
+        G_te_stack = np.repeat(np.eye(K, dtype=np.uint8), repeats=n_te, axis=0)
+
+        X_te_aug_stack = np.concatenate([X_te_stack, G_te_stack], axis=1)  # (K*n_te, P+K)
+
+        p_all = clf.predict_proba(X_te_aug_stack)[:, 1]  # (K*n_te,)
+
+        # reshape to (K, n_te): row j = probs under group j for all test points
+        p_mat = p_all.reshape(K, n_te)  # (K, n_te)
+
+        # write back: for each test row i, muY_g = p_mat[j, i]
+        # so df rows = test_idx, columns = mu_cols in group order
+        df.loc[df.index[test_idx], mu_cols] = p_mat.T  # (n_te, K)
+
+        # ---- factual OOF probability (for global tau) ----
+        # select the column corresponding to each row’s actual group
+        j_te = np.array([colpos[a] for a in A_te], dtype=int)
+        factual_pred[test_idx] = p_mat[j_te, np.arange(n_te)]
+
+    tau = choose_threshold_youden(y, factual_pred)
+    return df, float(tau), groups
+
+'''
 def build_outcome_models_and_scores(
     data: pd.DataFrame,
     group_col: str,             # e.g., 'A1A2' (string codes)
@@ -60,26 +174,12 @@ def build_outcome_models_and_scores(
         clf = _make()
         clf.fit(X_tr_aug, y[train_idx])
 
-        # ---- Counterfactual prediction: build augmented TEST ONCE ----
-        prefix = "G__"
-        dummy_cols = [f"{prefix}{g}" for g in groups]
-
-        # Base augmented test frame: same schema as _add_group_dummies would produce
-        X_te_aug = X_te.copy()
-        D_te = _init_group_dummy_frame(X_te.index, groups, prefix=prefix, dtype=int)
-        X_te_aug = pd.concat([X_te_aug, D_te], axis=1)
-
-        # Ensure identical column order to training augmented data (same as your original)
-        X_te_aug = X_te_aug.reindex(columns=X_tr_aug.columns, fill_value=0)
-
-        # Now: instead of rebuilding dummies each time, just overwrite the dummy block
-        # IMPORTANT: use .loc with dummy_cols so we don’t depend on contiguity/positions
+        #Predict counterfactual risk for each g on test fold
         for g in groups:
-            X_te_aug.loc[:, dummy_cols] = 0
-            X_te_aug.loc[:, f"{prefix}{g}"] = 1
-
-            # predict on the DataFrame (same type as before)
-            p = clf.predict_proba(X_te_aug)[:, 1]
+            A_te_g = pd.Series(g, index=X_te.index)
+            X_te_aug_g = _add_group_dummies(X_te, A_te_g, groups)
+            X_te_aug_g = X_te_aug_g.reindex(columns=X_tr_aug.columns, fill_value=0)
+            p = clf.predict_proba(X_te_aug_g)[:, 1]
             df.loc[X_te.index, f"muY_{g}"] = p
 
         #factual out of fold (OOF) probability for τ
@@ -89,7 +189,7 @@ def build_outcome_models_and_scores(
 
     tau = choose_threshold_youden(y, factual_pred)
     return df, tau, groups
-
+'''
 
 
 @dataclass
