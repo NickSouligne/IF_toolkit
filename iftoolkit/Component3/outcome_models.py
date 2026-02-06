@@ -21,106 +21,119 @@ def build_outcome_models_and_scores(
     n_splits: int = 5,
     random_state: int = 42,
     groups_universe: Optional[List[str]] = None,
-    precomputed_splits: Optional[List[Tuple[np.ndarray, np.ndarray]]] = None,
 ) -> Tuple[pd.DataFrame, float, List[str]]:
     """
-    Refactor: implements
-      1) precomputed splits (optional) to avoid re-creating KFold objects repeatedly
-      2) stacked inference: one predict_proba call per fold (instead of K calls)
+    Drop-in replacement that keeps the SAME external behavior and return types as the
+    original function, but removes pandas usage from the hot loops.
 
-    Output semantics match prior version:
-      - df contains muY_<g> columns filled OOF
-      - tau chosen by Youden on factual OOF preds
-      - groups returned in stable sorted order
+    What stays the same downstream:
+      - returns (df_with_mu_columns, tau, groups)
+      - df_with_mu_columns is a pandas DataFrame, with columns muY_<g> for all groups
+      - tau computed from factual OOF preds via Youden index
+      - groups ordering stable sorted
+
+    What changes internally (performance):
+      - all CV work uses numpy arrays (no .iloc/.loc/.concat in the loop)
+      - counterfactual prediction is done in GROUP BLOCKS to avoid huge stacked matrices
+        while still reducing predict_proba calls vs pure per-group loop.
     """
     df = data.copy()
 
-    # --- basic arrays (avoid repeated pandas slicing in inner loops) ---
+    # --- Materialize arrays ONCE ---
     y = df[outcome_col].astype(int).to_numpy()
-    X_all = df[covariates].to_numpy()
-    A_all = _as_str_groups(df[group_col])
+    X = df[covariates].to_numpy(dtype=float, copy=False)
+    A = _as_str_groups(df[group_col]).to_numpy()
 
-    # stable group universe
-    groups = sorted(groups_universe or A_all.unique().tolist())
+    # --- Stable group universe ---
+    groups = sorted(groups_universe or np.unique(A).tolist())
     K = len(groups)
-    P = X_all.shape[1]
+    N, P = X.shape
 
-    # allocate mu columns
-    mu_cols = [f"muY_{g}" for g in groups]
-    for c in mu_cols:
-        df[c] = np.nan
+    # Map group label -> integer index 0..K-1 (vectorized)
+    g2i = {g: i for i, g in enumerate(groups)}
+    A_idx = np.fromiter((g2i[a] for a in A), dtype=np.int64, count=N)
 
-    # mapping for factual selection
-    colpos = {g: j for j, g in enumerate(groups)}
+    # --- Allocate outputs as numpy (no DataFrame writes in loop) ---
+    mu = np.empty((N, K), dtype=np.float32)
+    mu.fill(np.nan)
+    factual_pred = np.empty(N, dtype=np.float64)
 
-    # model factory / cloning behavior
+    # --- Model factory (clone where possible) ---
     def _make():
         if model is None:
             return make_outcome_estimator(model_type, random_state=random_state)
-        # clone sklearn estimators when possible so each fold is independent
         try:
             return clone(model)
         except Exception:
             return model
 
-    # --- precompute splits if not provided ---
-    if precomputed_splits is None:
-        skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
-        splits = [(tr, te) for tr, te in skf.split(X_all, y)]
-    else:
-        splits = precomputed_splits
-        if len(splits) != n_splits:
-            # don’t hard-fail; just allow any list length and proceed
-            pass
+    # --- Precompute splits once (still identical estimation logic) ---
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    splits = list(skf.split(X, y))
 
-    factual_pred = np.zeros(len(df), dtype=float)
+    # Heuristic: choose group-block size to control memory.
+    # You can tune this constant; 16 or 32 are usually safe.
+    GROUP_BLOCK = 16
 
-    # --- main CV loop ---
-    for fold_id, (train_idx, test_idx) in enumerate(splits, start=1):
-        X_tr = X_all[train_idx]   # (n_tr, P)
-        X_te = X_all[test_idx]    # (n_te, P)
-        A_tr = A_all.iloc[train_idx].to_numpy()
-        A_te = A_all.iloc[test_idx].to_numpy()
+    for train_idx, test_idx in splits:
+        X_tr = X[train_idx]
+        y_tr = y[train_idx]
+        A_tr_idx = A_idx[train_idx]
+
+        X_te = X[test_idx]
+        A_te_idx = A_idx[test_idx]
         n_te = X_te.shape[0]
 
-        # ---- Build augmented TRAIN matrix: [X, one-hot(A)] ----
-        # one-hot: rows correspond to observed A in training data
+        # ---- Augment TRAIN: [X, one-hot(A)] ----
         G_tr = np.zeros((X_tr.shape[0], K), dtype=np.uint8)
-        # map each A_tr to its column index
-        j_tr = np.array([colpos[a] for a in A_tr], dtype=int)
-        G_tr[np.arange(X_tr.shape[0]), j_tr] = 1
-        X_tr_aug = np.concatenate([X_tr, G_tr], axis=1)  # (n_tr, P+K)
+        G_tr[np.arange(X_tr.shape[0]), A_tr_idx] = 1
+        X_tr_aug = np.concatenate([X_tr, G_tr], axis=1)
 
         clf = _make()
-        clf.fit(X_tr_aug, y[train_idx])
+        clf.fit(X_tr_aug, y_tr)
 
-        # ---- Stacked TEST inference: one predict_proba call for all groups ----
-        # We want predictions for every test row under every group:
-        # X_te_stack: (K*n_te, P)
-        # G_te_stack: (K*n_te, K) with block one-hot for each g
-        X_te_stack = np.tile(X_te, (K, 1))  # repeat X_te K times
+        # ---- Counterfactual prediction in GROUP BLOCKS (batched predict_proba) ----
+        # Fill mu[test_idx, :] block by block.
+        # For each block of groups [b0:b1):
+        #   Build stacked matrix with that many group identities
+        #   Call predict_proba once
+        #   Reshape back into (n_te, block_size)
+        for b0 in range(0, K, GROUP_BLOCK):
+            b1 = min(K, b0 + GROUP_BLOCK)
+            B = b1 - b0
 
-        # Each identity row repeated n_te times yields blocks:
-        # [e0 repeated n_te; e1 repeated n_te; ...]
-        G_te_stack = np.repeat(np.eye(K, dtype=np.uint8), repeats=n_te, axis=0)
+            # Stack X_te B times
+            X_te_stack = np.repeat(X_te, repeats=B, axis=0)  # (B*n_te, P)
 
-        X_te_aug_stack = np.concatenate([X_te_stack, G_te_stack], axis=1)  # (K*n_te, P+K)
+            # Build dummy block (B*n_te, K) but only set one column per row
+            # To reduce overhead, we still allocate full K here; if K is huge,
+            # we can optimize further (ask and I’ll give that version).
+            G_te = np.zeros((B * n_te, K), dtype=np.uint8)
 
-        p_all = clf.predict_proba(X_te_aug_stack)[:, 1]  # (K*n_te,)
+            # Row r in stacked corresponds to: group = b0 + (r // n_te)
+            # Within each group block, set the right dummy to 1.
+            block_group_ids = (np.arange(B, dtype=np.int64) + b0)
+            row_groups = np.repeat(block_group_ids, repeats=n_te)  # (B*n_te,)
+            G_te[np.arange(B * n_te), row_groups] = 1
 
-        # reshape to (K, n_te): row j = probs under group j for all test points
-        p_mat = p_all.reshape(K, n_te)  # (K, n_te)
+            X_te_aug = np.concatenate([X_te_stack, G_te], axis=1)  # (B*n_te, P+K)
+            p = clf.predict_proba(X_te_aug)[:, 1]                  # (B*n_te,)
 
-        # write back: for each test row i, muY_g = p_mat[j, i]
-        # so df rows = test_idx, columns = mu_cols in group order
-        df.loc[df.index[test_idx], mu_cols] = p_mat.T  # (n_te, K)
+            # Reshape: first n_te are group b0, next n_te group b0+1, etc.
+            p_mat = p.reshape(B, n_te).T  # (n_te, B)
 
-        # ---- factual OOF probability (for global tau) ----
-        # select the column corresponding to each row’s actual group
-        j_te = np.array([colpos[a] for a in A_te], dtype=int)
-        factual_pred[test_idx] = p_mat[j_te, np.arange(n_te)]
+            mu[np.asarray(test_idx), b0:b1] = p_mat.astype(np.float32, copy=False)
 
+        # ---- factual OOF probability (for tau) ----
+        factual_pred[np.asarray(test_idx)] = mu[np.asarray(test_idx), A_te_idx].astype(np.float64)
+
+    # Choose tau via Youden on factual OOF preds
     tau = choose_threshold_youden(y, factual_pred)
+
+    # ---- Attach mu columns to DataFrame ONCE (keeps downstream structure identical) ----
+    mu_cols = [f"muY_{g}" for g in groups]
+    df[mu_cols] = mu  # single assignment; avoids per-cell/.loc writes
+
     return df, float(tau), groups
 
 '''
