@@ -315,7 +315,7 @@ def evaluate_intersectional_fairness(
                 "positive_rate", "tpr", "fpr",
                 "eo_diff", "eod_fpr_diff", "eod_max_abs",
             ],
-            title=f"Fairness Landscape (privileged: {privileged_group})",
+            title=f"Fairness Metrics Matrix (privileged: {privileged_group})",
             annotate=True,
             sort_by="eod_max_abs",
             max_groups=40,      # tune as needed; set None for all groups
