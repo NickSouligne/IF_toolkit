@@ -18,4 +18,5 @@ __all__ = [
     "filter_intersectional_groups",
     "confusion_by_group",
     "_compute_group_rates",
+    "_plot_fairness_matrix"
 ]

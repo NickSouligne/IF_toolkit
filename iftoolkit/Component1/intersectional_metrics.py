@@ -10,7 +10,7 @@ from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import FunctionTransformer, Pipeline
 from .containers import FairnessResults, GroupRates
-from .plots import _plot_bar, _plot_bar_series_by_group, _plot_grouped_eods_components
+from .plots import _plot_bar, _plot_bar_series_by_group, _plot_grouped_eods_components, _plot_fairness_matrix
 from .utilities import _compute_group_rates, _make_ohe, _get_model, _as_prob
 
 
@@ -308,6 +308,19 @@ def evaluate_intersectional_fairness(
         )
 
         figs["eods_components_grouped"] = _plot_grouped_eods_components(results.per_group_df)
+
+        figs["fairness_landscape"] = _plot_fairness_matrix(
+            per_group_with_diffs,
+            metric_cols=[
+                "positive_rate", "tpr", "fpr",
+                "eo_diff", "eod_fpr_diff", "eod_max_abs",
+            ],
+            title=f"Fairness Landscape (privileged: {privileged_group})",
+            annotate=True,
+            sort_by="eod_max_abs",
+            max_groups=40,      # tune as needed; set None for all groups
+            normalize="zscore", # or "none" if you prefer raw-color scaling
+        )
 
         
     if return_intermediates:
