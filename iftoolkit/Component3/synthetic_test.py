@@ -183,9 +183,7 @@ if __name__ == "__main__":
     print("\n[m_sr | LGBM] Point estimates")
     print(m_sr.summarize().sort_values("stat").to_string(index=False))
 
-    _, _, uvals_plugin, group_null_long = m_sr.plots(alpha=0.05, delta_uval=0.10)
-    plot_group_null_boxplots(group_null_long, metric="cfnr")
-    plot_group_null_boxplots(group_null_long, metric="cfpr")
+    _, _, uvals_plugin = m_sr.plots(alpha=0.05, delta_uval=0.10)
     print("\n[PLUGIN | LGBM] U-values (aggregate)")
     print(uvals_plugin.to_string(index=False))
 
