@@ -189,7 +189,7 @@ if __name__ == "__main__":
     print("\n[PLUGIN | LGBM] U-values (aggregate)")
     print(uvals_plugin.to_string(index=False))
 
-    sys.exit()
+    #sys.exit()
 
 
     #----------------- DR (AIPW doubly-robust) ------------------
