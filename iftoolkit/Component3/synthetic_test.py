@@ -1,7 +1,10 @@
+import sys
+
 import numpy as np
 import pandas as pd
 from sklearn.svm import SVC
 from xgboost import XGBClassifier
+from iftoolkit.Component3.plots import plot_group_null_boxplots
 from .model import Model
 from .Fairness import FairnessPipeline
 from lightgbm import LGBMClassifier
@@ -180,9 +183,13 @@ if __name__ == "__main__":
     print("\n[m_sr | LGBM] Point estimates")
     print(m_sr.summarize().sort_values("stat").to_string(index=False))
 
-    _, _, uvals_plugin = m_sr.plots(alpha=0.05, delta_uval=0.10)
+    _, _, uvals_plugin, group_null_long = m_sr.plots(alpha=0.05, delta_uval=0.10)
+    plot_group_null_boxplots(group_null_long, metric="cfnr")
+    plot_group_null_boxplots(group_null_long, metric="cfpr")
     print("\n[PLUGIN | LGBM] U-values (aggregate)")
     print(uvals_plugin.to_string(index=False))
+
+    sys.exit()
 
 
     #----------------- DR (AIPW doubly-robust) ------------------

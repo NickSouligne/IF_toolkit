@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 import pandas as pd
-from .plots import get_plots
+from plots import get_plots
 from .estimation_functions import analysis_estimation
 from .helpers import ProbaEstimator
 

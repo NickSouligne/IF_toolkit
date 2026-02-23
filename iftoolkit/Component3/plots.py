@@ -218,6 +218,7 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
             plt.tight_layout()
             plt.show()
 
+    group_null_long = _build_group_null_long(null_df, prefixes=("cfpr_", "cfnr_"))
     #per-group scatter (with error bars if CI present)
     try:
         for sign, ylabel in [("cfpr", "Group cFPR Estimate"), ("cfnr", "Group cFNR Estimate")]:
@@ -237,4 +238,88 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
     except Exception:
         pass
 
-    return est_summaries, table_null_delta, table_uval
+    return est_summaries, table_null_delta, table_uval, group_null_long
+
+
+def _build_group_null_long(null_df: pd.DataFrame, prefixes=("cfpr_", "cfnr_")) -> pd.DataFrame:
+    """
+    Convert wide null draws (columns cfpr_*, cfnr_*) into long form:
+      draw, stat, metric, group, value_null
+    """
+    cols = []
+    for p in prefixes:
+        cols.extend([c for c in null_df.columns if c.startswith(p)])
+
+    if not cols:
+        return pd.DataFrame(columns=["draw", "stat", "metric", "group", "value_null"])
+
+    tmp = null_df[cols].copy()
+    tmp["draw"] = np.arange(len(tmp), dtype=int)
+
+    long = tmp.melt(id_vars="draw", var_name="stat", value_name="value_null")
+    long["metric"] = long["stat"].str.split("_", n=1).str[0]  # cfpr / cfnr
+    long["group"] = long["stat"].str.split("_", n=1).str[1]   # group label
+    return long
+
+
+
+def plot_group_null_boxplots(
+    group_null_long: pd.DataFrame,
+    *,
+    metric: str,                 # "cfpr" or "cfnr"
+    ci=(2.5, 97.5),
+    order: Optional[list] = None,
+    title: Optional[str] = None,
+    figsize=(12, 6),
+):
+    """
+    Boxplots of subgroup null distributions for cfpr/cfnr across permutation draws.
+    Overlays mean (dot) and percentile CI (errorbar) computed from null draws.
+    """
+    d = group_null_long[group_null_long["metric"] == metric].copy()
+    if d.empty:
+        raise ValueError(f"No rows for metric={metric!r}")
+
+    # default ordering by observed mean of null draws
+    if order is None:
+        order = (
+            d.groupby("group")["value_null"]
+             .mean()
+             .sort_values(ascending=False)
+             .index.tolist()
+        )
+
+    # compute mean + percentile CI per group
+    summ = (
+        d.groupby("group")["value_null"]
+         .agg(
+            mean="mean",
+            lo=lambda x: np.nanpercentile(x.to_numpy(dtype=float), ci[0]),
+            hi=lambda x: np.nanpercentile(x.to_numpy(dtype=float), ci[1]),
+         )
+         .reindex(order)
+         .reset_index()
+    )
+
+    plt.figure(figsize=figsize)
+    ax = sns.boxplot(data=d, x="group", y="value_null", order=order, showfliers=False)
+
+    # overlay mean + CI
+    x = np.arange(len(order))
+    ax.scatter(x, summ["mean"].to_numpy(), zorder=3)
+
+    y = summ["mean"].to_numpy()
+    lo = summ["lo"].to_numpy()
+    hi = summ["hi"].to_numpy()
+    yerr = np.vstack([y - lo, hi - y])
+    ax.errorbar(x, y, yerr=yerr, fmt="none", capsize=3, zorder=3)
+
+    ax.set_xlabel("Group")
+    ax.set_ylabel(f"Null draw {metric.upper()} value")
+    if title is None:
+        title = f"Null distribution of subgroup {metric.upper()}"
+    ax.set_title(title)
+    ax.tick_params(axis="x", rotation=45)
+    plt.tight_layout()
+    plt.show()
+    return ax
