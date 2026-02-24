@@ -240,33 +240,37 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
             columns=["draw", "stat", "metric", "group", "value_null"]
         )
 
-        # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # Plot subgroup null distributions (boxplots)
     # ------------------------------------------------------------------
+    ACCENT = "#0072B2"
+    BOX = "#D9D9D9"       
+    EDGE = "#4D4D4D"      
+
+    sns.set_theme(style="whitegrid", context="talk")  
+
     if not group_null_long.empty:
         for metric in ["cfnr", "cfpr"]:
             d = group_null_long[group_null_long["metric"] == metric]
             if d.empty:
                 continue
 
-            # order groups by mean null value
             order = (
                 d.groupby("group")["value_null"]
-                 .mean()
-                 .sort_values(ascending=False)
-                 .index.tolist()
+                .mean()
+                .sort_values(ascending=False)
+                .index.tolist()
             )
 
-            # compute mean + percentile CI across null draws
             summ = (
                 d.groupby("group")["value_null"]
-                 .agg(
+                .agg(
                     mean="mean",
                     lo=lambda x: np.nanpercentile(x, 2.5),
                     hi=lambda x: np.nanpercentile(x, 97.5),
-                 )
-                 .reindex(order)
-                 .reset_index()
+                )
+                .reindex(order)
+                .reset_index()
             )
 
             plt.figure(figsize=(12, 6))
@@ -276,6 +280,11 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
                 y="value_null",
                 order=order,
                 showfliers=False,
+                width=0.6,
+                boxprops=dict(facecolor=BOX, edgecolor=EDGE, linewidth=1.2),
+                whiskerprops=dict(color=EDGE, linewidth=1.2),
+                capprops=dict(color=EDGE, linewidth=1.2),
+                medianprops=dict(color=EDGE, linewidth=2.0),
             )
 
             x = np.arange(len(order))
@@ -283,23 +292,26 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
             lo = summ["lo"].to_numpy()
             hi = summ["hi"].to_numpy()
 
-            ax.scatter(x, y, zorder=3)
+            ax.scatter(x, y, color=ACCENT, s=40, zorder=3)
             ax.errorbar(
                 x,
                 y,
                 yerr=np.vstack([y - lo, hi - y]),
                 fmt="none",
-                capsize=3,
+                ecolor=ACCENT,
+                elinewidth=2.0,
+                capsize=4,
                 zorder=3,
             )
 
             ax.set_xlabel("Group")
             ax.set_ylabel(f"Null {metric.upper()}")
-            ax.set_title(
-                f"Null distribution of subgroup {metric.upper()} "
-                "(box = permutation draws, dot = mean, bar = 95% null CI)"
-            )
+            ax.set_title(f"Null distribution of subgroup {metric.upper()}")
             ax.tick_params(axis="x", rotation=45)
+
+            # optional: remove top/right spines for a cleaner look
+            sns.despine(ax=ax)
+
             plt.tight_layout()
             plt.show()
     
