@@ -20,13 +20,15 @@ def evaluate_intersectional_fairness(
     protected_1: str,
     protected_2: str,
     features: Optional[List[str]] = None,
-    model_type: str = "logreg",
+    model_type: str = "logreg", #Default to logistic regression, but can specify any supported model type (e.g. "lgbm", "rf", "nn")
     model_params: Optional[Dict[str, Any]] = None,
     test_size: float = 0.3,
-    random_state: int = 42,
+    random_state: int = 42, #Default random state for reproducibility; can be set to None for non-deterministic splits
     positive_label: Any = 1,
-    threshold: float = 0.5,
+    threshold: float = 0.5, #Predict positive if proba ≥ this
     make_plots: bool = True,
+    train_df: Optional[pd.DataFrame] = None, #If provided, use this as the training set instead of splitting from df
+    test_df: Optional[pd.DataFrame] = None, #If provided, use this as the test set instead of splitting from df (must provide both train_df and test_df or neither)
     *,
     return_intermediates = False,
     return_non_intersectional: bool = False,
@@ -39,13 +41,14 @@ def evaluate_intersectional_fairness(
         if col not in df.columns:
             raise KeyError(f"Column '{col}' not found in df.")
         
-
+    #Computes fairness metrics for non intersectional groups (for optional return_non_intersectional output)
     def _compute_fairness_for_groups(group_labels, *, dropped_groups_local=None, kept_summary_local=None) -> FairnessResults:
         g_series_local = pd.Series(group_labels, index=np.arange(len(group_labels)))
         group_rates_local = _compute_group_rates(y_true=y_test, y_pred=y_hat, groups=g_series_local)
         df_groups_local = pd.DataFrame([gr.__dict__ for gr in group_rates_local])
 
         df_groups_filtered_local = df_groups_local.copy()
+        #Filter out small groups or those without class balance, if specified (Avoid reporting NaN or 0 rates)
         if min_group_size > 0:
             df_groups_filtered_local = df_groups_filtered_local[df_groups_filtered_local["n"] >= min_group_size]
         if require_class_balance:
@@ -67,12 +70,14 @@ def evaluate_intersectional_fairness(
             fpr_priv_local = float(df_for_metrics_local.loc[df_for_metrics_local["group"] == privileged_group_local, "fpr"].iloc[0])
 
         df_disp_local = df_for_metrics_local.copy()
+        #Find per-group disparities 
         df_disp_local["eo_diff"] = tpr_priv_local - df_disp_local["tpr"]
         df_disp_local["eod_tpr_diff"] = tpr_priv_local - df_disp_local["tpr"]
         df_disp_local["eod_fpr_diff"] = df_disp_local["fpr"] - fpr_priv_local
         df_disp_local["eod_max_abs"] = np.maximum(df_disp_local["eod_tpr_diff"].abs(), df_disp_local["eod_fpr_diff"].abs())
         per_group_with_diffs_local = df_disp_local.reset_index(drop=True)
 
+        #Helper to avoid bad data causing errors due to NaNs
         def _gap(s: pd.Series) -> float:
             s = s.replace([np.inf, -np.inf], np.nan).dropna()
             return float(s.max() - s.min()) if not s.empty else float("nan")
