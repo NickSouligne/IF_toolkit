@@ -171,17 +171,37 @@ def evaluate_intersectional_fairness(
     else:
         pipe = Pipeline([("prep", pre_sparse), ("model", clf)])
 
-    #Split & train
     p1 = df[protected_1].astype(str).values
     p2 = df[protected_2].astype(str).values
 
-    X_train, X_test, y_train, y_test, g_train, g_test, p1_train, p1_test, p2_train, p2_test = train_test_split(
-        X, y, inter, p1, p2,
-        test_size=test_size, random_state=random_state, stratify=y
-    )
-    #X_train, X_test, y_train, y_test, g_train, g_test = train_test_split(
-    #    X, y, inter, test_size=test_size, random_state=random_state, stratify=y
-    #)
+    if (train_df is None) ^ (test_df is None):
+        raise ValueError("Provide both train_df and test_df, or neither.")
+
+    if train_df is not None and test_df is not None:
+        # Rebuild X/y/inter/p1/p2 from the provided splits to avoid index mismatch
+        def _build_arrays(d: pd.DataFrame):
+            y_local = (d[outcome].values == positive_label).astype(int)
+            inter_local = (d[protected_1].astype(str) + "|" + d[protected_2].astype(str)).values
+
+            if features is None:
+                X_local = d.drop(columns=[outcome, protected_1, protected_2])
+            else:
+                feat_cols = [c for c in features if c not in (outcome, protected_1, protected_2)]
+                X_local = d[feat_cols].copy()
+
+            p1_local = d[protected_1].astype(str).values
+            p2_local = d[protected_2].astype(str).values
+            return X_local, y_local, inter_local, p1_local, p2_local
+
+        X_train, y_train, g_train, p1_train, p2_train = _build_arrays(train_df)
+        X_test,  y_test,  g_test,  p1_test,  p2_test  = _build_arrays(test_df)
+
+    else:
+        X_train, X_test, y_train, y_test, g_train, g_test, p1_train, p1_test, p2_train, p2_test = train_test_split(
+            X, y, inter, p1, p2,
+            test_size=test_size, random_state=random_state, stratify=y
+        )
+
     pipe.fit(X_train, y_train)
 
     #Predict on test

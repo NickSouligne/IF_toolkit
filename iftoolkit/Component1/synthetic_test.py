@@ -77,7 +77,7 @@ if __name__ == "__main__":
     print(inter["non_intersectional"]["Race"].per_group_df)
     print(inter["non_intersectional"]["Gender"].demographic_parity_gap)
 
-    # Show plots when running as a script
+    #Show plots when running as a script
     for name, fig in figs.items():
         fig.show()
         plt.show()
