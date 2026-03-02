@@ -11,6 +11,83 @@ from .helpers import _as_str_groups, _clip_probs, choose_threshold_youden, _add_
 
 #-------Cross-fitting & muY outputs -----------
 
+
+from sklearn.base import clone
+import numpy as np
+import pandas as pd
+from .helpers import _as_str_groups, choose_threshold_youden, make_outcome_estimator
+
+def build_outcome_models_and_scores_fixed_split(
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    group_col: str,
+    outcome_col: str,
+    covariates: list[str],
+    model=None,
+    model_type: str = "rf",
+    random_state: int = 42,
+    groups_universe: list[str] | None = None,
+):
+    """
+    Fit outcome model on train_df only; compute counterfactual muY_<g> on test_df only.
+    Returns (df_test_with_mu, tau, groups).
+    """
+    tr = train_df.copy()
+    te = test_df.copy()
+
+    y_tr = tr[outcome_col].astype(int).to_numpy()
+    X_tr = tr[covariates].to_numpy(dtype=float, copy=False)
+    A_tr = _as_str_groups(tr[group_col]).to_numpy()
+
+    X_te = te[covariates].to_numpy(dtype=float, copy=False)
+    A_te = _as_str_groups(te[group_col]).to_numpy()
+
+    groups = sorted(groups_universe or np.unique(np.concatenate([A_tr, A_te])).tolist())
+    K = len(groups)
+
+    g2i = {g: i for i, g in enumerate(groups)}
+    A_tr_idx = np.fromiter((g2i[a] for a in A_tr), dtype=np.int64, count=len(A_tr))
+    A_te_idx = np.fromiter((g2i[a] for a in A_te), dtype=np.int64, count=len(A_te))
+
+    def _make():
+        if model is None:
+            return make_outcome_estimator(model_type, random_state=random_state)
+        try:
+            return clone(model)
+        except Exception:
+            return model
+
+    # augment TRAIN: [X, one-hot(A)]
+    G_tr = np.zeros((X_tr.shape[0], K), dtype=np.uint8)
+    G_tr[np.arange(X_tr.shape[0]), A_tr_idx] = 1
+    X_tr_aug = np.concatenate([X_tr, G_tr], axis=1)
+
+    clf = _make()
+    clf.fit(X_tr_aug, y_tr)
+
+    # counterfactual mu on TEST for all groups
+    n_te = X_te.shape[0]
+    mu = np.empty((n_te, K), dtype=np.float32)
+    mu.fill(np.nan)
+
+    # simple loop over groups (fine unless K huge)
+    for j, g in enumerate(groups):
+        G_te = np.zeros((n_te, K), dtype=np.uint8)
+        G_te[:, j] = 1
+        X_te_aug = np.concatenate([X_te, G_te], axis=1)
+        mu[:, j] = clf.predict_proba(X_te_aug)[:, 1].astype(np.float32, copy=False)
+
+    # factual preds on TRAIN for tau selection
+    # (train factual pred = mu at factual A; easiest is predict factual directly)
+    # build factual augmented X for train
+    # (already have X_tr_aug; predict on that)
+    p_tr_fact = clf.predict_proba(X_tr_aug)[:, 1]
+    tau = choose_threshold_youden(y_tr, p_tr_fact)
+
+    mu_cols = [f"muY_{g}" for g in groups]
+    te[mu_cols] = mu
+    return te, float(tau), groups
+
 def build_outcome_models_and_scores(
     data: pd.DataFrame,
     group_col: str,             # e.g., 'A1A2' (string codes)

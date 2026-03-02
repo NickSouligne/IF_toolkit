@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 from .helpers import _as_str_groups, ProbaEstimator
-from .outcome_models import build_outcome_models_and_scores, get_defs_from_rates, compute_cf_group_rates_dr, compute_cf_group_rates_sr
+from .outcome_models import build_outcome_models_and_scores_fixed_split, build_outcome_models_and_scores, get_defs_from_rates, compute_cf_group_rates_dr, compute_cf_group_rates_sr
 
 
 #-------Estimation wrappers -----------
@@ -132,6 +132,8 @@ def analysis_estimation(
     n_splits: int = 5,
     random_state: int = 42,
     gen_null: bool = True,
+    train_df: Optional[pd.DataFrame] = None,
+    test_df: Optional[pd.DataFrame] = None,
     R_null: int = 200,
     bootstrap: str = "none",             #{'none','rescaled'}
     B: int = 500,
@@ -147,12 +149,33 @@ def analysis_estimation(
     """
     groups_universe = sorted(_as_str_groups(data[group_col]).unique().tolist())
 
-    df_mu, tau_obs, groups = build_outcome_models_and_scores(
-        data, group_col, outcome_col, covariates,
-        model=model, model_type=model_type,
-        n_splits=n_splits, random_state=random_state,
-        groups_universe=groups_universe,
-    )
+    if (train_df is None) ^ (test_df is None):
+        raise ValueError("Provide both train_df and test_df, or neither.")
+
+    if train_df is not None:
+        #groups universe should cover both
+        groups_universe = sorted(
+            _as_str_groups(pd.concat([train_df[group_col], test_df[group_col]])).unique().tolist()
+        )
+        df_mu, tau_obs, groups = build_outcome_models_and_scores_fixed_split(
+            train_df=train_df,
+            test_df=test_df,
+            group_col=group_col,
+            outcome_col=outcome_col,
+            covariates=covariates,
+            model=model,
+            model_type=model_type,
+            random_state=random_state,
+            groups_universe=groups_universe,
+        )
+    else:
+        groups_universe = sorted(_as_str_groups(data[group_col]).unique().tolist())
+        df_mu, tau_obs, groups = build_outcome_models_and_scores(
+            data, group_col, outcome_col, covariates,
+            model=model, model_type=model_type,
+            n_splits=n_splits, random_state=random_state,
+            groups_universe=groups_universe,
+        )
     tau = float(cutoff) if cutoff is not None else tau_obs
 
     #Compute metrics on observed data

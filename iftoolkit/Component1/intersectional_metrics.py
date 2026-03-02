@@ -179,11 +179,12 @@ def evaluate_intersectional_fairness(
     p1 = df[protected_1].astype(str).values
     p2 = df[protected_2].astype(str).values
 
+    #If user provided the train and test splits directly we use those here
     if (train_df is None) ^ (test_df is None):
         raise ValueError("Provide both train_df and test_df, or neither.")
 
     if train_df is not None and test_df is not None:
-        # Rebuild X/y/inter/p1/p2 from the provided splits to avoid index mismatch
+        #Rebuild data from the provided splits to avoid index mismatch
         def _build_arrays(d: pd.DataFrame):
             y_local = (d[outcome].values == positive_label).astype(int)
             inter_local = (d[protected_1].astype(str) + "|" + d[protected_2].astype(str)).values
@@ -201,7 +202,7 @@ def evaluate_intersectional_fairness(
         X_train, y_train, g_train, p1_train, p2_train = _build_arrays(train_df)
         X_test,  y_test,  g_test,  p1_test,  p2_test  = _build_arrays(test_df)
 
-    else:
+    else: #Otherwise we split from the provided df
         X_train, X_test, y_train, y_test, g_train, g_test, p1_train, p1_test, p2_train, p2_test = train_test_split(
             X, y, inter, p1, p2,
             test_size=test_size, random_state=random_state, stratify=y
@@ -220,7 +221,7 @@ def evaluate_intersectional_fairness(
 
     accuracy = float(accuracy_score(y_test, y_hat))
 
-    #(optional) quick console summary
+    #quick console summary of model performance
     print(f"[Model performance] accuracy={accuracy:.3f} | AUROC={auroc:.3f}")
 
     #Metrics by group (on test)
@@ -279,20 +280,7 @@ def evaluate_intersectional_fairness(
         print("Warning: All groups were filtered out by min_group_size or require_class_balance. "
               "Returning metrics on unfiltered groups, which may include NaN rates.")
 
-    """
-    results = FairnessResults(
-        model=mt,
-        groups=[GroupRates(**row) for row in df_for_metrics.to_dict(orient="records")],
-        demographic_parity_gap=_gap(df_for_metrics["positive_rate"]),
-        equalized_odds_gap_tpr=_gap(df_for_metrics["tpr"]),
-        equalized_odds_gap_fpr=_gap(df_for_metrics["fpr"]),
-        equal_opportunity_gap=_gap(df_for_metrics["tpr"]),
-        per_group_df=per_group_with_diffs,
-        dropped_groups=dropped_groups,
-        kept_groups_summary=kept_summary.reset_index().rename(columns={"g": "group"}),
-    )
-    """
-
+    
     results = _compute_fairness_for_groups(
         g_test,
         dropped_groups_local=dropped_groups,

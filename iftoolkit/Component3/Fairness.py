@@ -24,6 +24,8 @@ class FairnessPipeline:
         model_type: str = "rf",
         n_splits: int = 5,
         random_state: int = 42,
+        train_df: Optional[pd.DataFrame] = None,
+        test_df: Optional[pd.DataFrame] = None,
         method: str = "sr"  #sr (single robust) or 'dr' (doubly robust)
     ):
         self.group_col = group_col
@@ -44,6 +46,8 @@ class FairnessPipeline:
         R_null: int = 200,
         bootstrap: str = "none",
         B: int = 500,
+        train_df: Optional[pd.DataFrame] = None,
+        test_df: Optional[pd.DataFrame] = None,
         m_factor: float = 0.75,
     ) -> Dict[str, object]:
         
@@ -61,6 +65,8 @@ class FairnessPipeline:
             R_null=R_null,
             bootstrap=bootstrap,
             B=B,
+            train_df=train_df,
+            test_df=test_df,
             m_factor=m_factor,
             method=self.method,
         )

@@ -235,6 +235,8 @@ class Model:
         R_null: int = 200,
         bootstrap: str = "rescaled",
         B: int = 500,
+        train_df: Optional[pd.DataFrame] = None,
+        test_df: Optional[pd.DataFrame] = None,
         m_factor: float = 0.75
     ) -> Dict[str, object]:
         """
@@ -266,6 +268,8 @@ class Model:
             R_null=R_null,
             bootstrap=bootstrap,
             B=B,
+            train_df=train_df,
+            test_df=test_df,
             m_factor=m_factor
         )
         return self.results_
