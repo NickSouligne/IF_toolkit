@@ -34,7 +34,7 @@ def _make_component3_df(n=600, seed=0):
 
 
 def test_pre_process_data_creates_intersection_and_covariates():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     df = _make_component3_df(n=200, seed=1)
 
@@ -58,7 +58,7 @@ def test_pre_process_data_creates_intersection_and_covariates():
 
 
 def test_fit_fairness_sr_happy_path_no_null_no_bootstrap_fast():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     df = _make_component3_df(n=500, seed=2)
 
@@ -92,7 +92,7 @@ def test_fit_fairness_sr_happy_path_no_null_no_bootstrap_fast():
 
 
 def test_fit_fairness_dr_autocompute_propensity_adds_group_probs():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     df = _make_component3_df(n=600, seed=3)
 
@@ -131,7 +131,7 @@ def test_fit_fairness_dr_autocompute_propensity_adds_group_probs():
 
 
 def test_fit_fairness_requires_preprocess():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     df = _make_component3_df(n=120, seed=4)
 
@@ -152,7 +152,7 @@ def test_fit_fairness_requires_preprocess():
 
 
 def test_pre_process_data_missing_columns_raises():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     df = _make_component3_df(n=80, seed=5).drop(columns=["A2"])
 
@@ -172,7 +172,7 @@ def test_pre_process_data_missing_columns_raises():
 
 
 def test_ensure_probabilistic_estimator_wraps_nonproba_model():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     base = LinearSVC()  # no predict_proba
     wrapped = ift.cf_ensure_probabilistic_estimator(base, method="isotonic", cv=2)

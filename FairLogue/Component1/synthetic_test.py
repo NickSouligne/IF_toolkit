@@ -7,6 +7,8 @@ import pandas as pd
 #-----Example usage (synthetic)------
 
 if __name__ == "__main__":
+
+    #Synthetic data generation can be commented out for quick demonstration
     '''
     #Create a small synthetic example to demonstrate usage
     rng = np.random.default_rng(0)
@@ -33,8 +35,8 @@ if __name__ == "__main__":
 
     '''
 
-    #Load the synthetic data
-    df = pd.read_csv("C:\\Users\\nicks\\Documents\\UA_Classes\\Python Code\\Clinical Data Generation\\synthetic_glaucoma_intervention.csv")
+    #Load the synthetic data (Replace with file path)
+    df = pd.read_csv("synthetic_glaucoma_intervention.csv")
 
     #Define model parameters for lightGBM
     MODEL_PARAMS = {

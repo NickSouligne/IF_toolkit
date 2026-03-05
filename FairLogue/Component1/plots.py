@@ -50,9 +50,9 @@ def _plot_fairness_matrix(
     metric_cols=None,
     title: str = "Fairness Landscape Matrix (Groups x Metrics)",
     annotate: bool = True,
-    sort_by: str | None = "eod_max_abs",  # set None to keep incoming order
-    max_groups: int | None = None,        # set to e.g. 30 to avoid overcrowding
-    normalize: str = "zscore"             # "zscore", "minmax", or "none"
+    sort_by: str | None = "eod_max_abs",  #set None to keep incoming order
+    max_groups: int | None = None,        #set to e.g. 30 to avoid overcrowding
+    normalize: str = "zscore"             #"zscore", "minmax", or "none"
 ):
     """
     Heatmap: rows=groups, cols=metrics. Optionally normalize columns so metrics
@@ -72,35 +72,35 @@ def _plot_fairness_matrix(
         Column-wise normalization for visualization.
     """
     if metric_cols is None:
-        # Pick common metrics if they exist
+        #Pick fairness metrics if they were computed
         candidates = [
             "positive_rate", "tpr", "fpr",
             "eo_diff", "eod_tpr_diff", "eod_fpr_diff", "eod_max_abs"
         ]
         metric_cols = [c for c in candidates if c in df.columns]
 
+    #Handle missing data 
     if group_col not in df.columns:
         raise KeyError(f"'{group_col}' not found in df")
-
     missing = [c for c in metric_cols if c not in df.columns]
     if missing:
         raise KeyError(f"Missing metric columns: {missing}")
 
     d = df[[group_col] + metric_cols].copy()
 
-    # Optional sorting (largest disparities first)
+    #Sort by the largest disparities first
     if sort_by is not None and sort_by in d.columns:
         d = d.sort_values(sort_by, ascending=False)
 
-    # Optional truncation for readability
+    #Optional truncation for readability
     if max_groups is not None and max_groups > 0:
         d = d.head(max_groups)
 
-    # Build matrix
+    #Build matrix
     groups = d[group_col].astype(str).tolist()
     M = d[metric_cols].to_numpy(dtype=float)
 
-    # Column-wise normalization for comparability
+    #Column-wise normalization for comparability
     M_plot = M.copy()
     if normalize == "zscore":
         mu = np.nanmean(M_plot, axis=0)
@@ -117,7 +117,7 @@ def _plot_fairness_matrix(
     else:
         raise ValueError("normalize must be one of: 'zscore', 'minmax', 'none'")
 
-    # Plot
+    #Plot
     fig, ax = plt.subplots(figsize=(max(6, 0.9 * len(metric_cols) + 2),
                                     max(4, 0.25 * len(groups) + 2)))
 
@@ -129,7 +129,7 @@ def _plot_fairness_matrix(
     ax.set_yticks(np.arange(len(groups)))
     ax.set_yticklabels(groups)
 
-    # Annotate with *raw* values (not normalized) for interpretability
+    #Annotate with raw values for interpretability
     if annotate:
         for i in range(len(groups)):
             for j in range(len(metric_cols)):
@@ -137,11 +137,12 @@ def _plot_fairness_matrix(
                 if np.isnan(val):
                     txt = "NA"
                 else:
-                    # Use compact formatting
+                    #compact formatting
                     txt = f"{val:.2f}"
                 ax.text(j, i, txt, ha="center", va="center", fontsize=8)
 
     cbar = fig.colorbar(im, ax=ax)
+    #Set label based on normalization
     if normalize == "zscore":
         cbar.set_label("Z-score (column-wise)")
     elif normalize == "minmax":

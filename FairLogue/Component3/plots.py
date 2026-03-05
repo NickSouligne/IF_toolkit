@@ -30,6 +30,15 @@ def annotate_plot(ax: plt.Axes, u_value: float, x_pos: float = 0.0) -> None:
     )
 
 
+def _ecdf(arr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    arr = np.asarray(arr, dtype=float)
+    arr = arr[np.isfinite(arr)]
+    if arr.size == 0:
+        return np.array([]), np.array([])
+    x = np.sort(arr)
+    y = np.arange(1, x.size + 1) / x.size
+    return x, y
+
 def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha: float = 0.05, m_factor: float = 0.75, delta_uval: float = 0.10,):
     """
     Assemble plot tables, optional figures, and compute u-values.
@@ -217,6 +226,43 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
 
             plt.tight_layout()
             plt.show()
+
+            neg_stats = [("avg_neg", "Average"), ("max_neg", "Maximum"), ("var_neg", "Variational")]
+            pos_stats = [("avg_pos", "Average"), ("max_pos", "Maximum"), ("var_pos", "Variational")]
+
+            fig, axes = plt.subplots(1, 2, figsize=(12, 5), dpi=300, sharey=True)
+
+            for ax, stats, panel_title in [
+                (axes[0], neg_stats, "Negative"),
+                (axes[1], pos_stats, "Positive"),
+            ]:
+                ax.axvline(0.0, linestyle="--", linewidth=1)
+                ax.set_title(f"ECDF of Obs − Null ({panel_title})")
+                ax.set_xlabel("Obs. − Null")
+                ax.set_ylim(0, 1)
+
+                for stat, label in stats:
+                    vals = (
+                        table_null_delta.loc[table_null_delta["stat"] == stat, "obs_minus_null"]
+                        .dropna()
+                        .to_numpy()
+                    )
+                    xs, ys = _ecdf(vals)
+                    if xs.size == 0:
+                        continue
+
+                    uval = float(table_uval[stat].values[0])
+                    ax.plot(xs, ys, linewidth=2, label=f"{label} (u={uval:.3f})")
+
+                ax.grid(True, linewidth=0.5, alpha=0.4)
+                ax.legend(frameon=True, fontsize=10)
+
+            ax.axvline(delta_uval, linestyle=":", linewidth=1)
+            axes[0].set_ylabel("ECDF")
+            plt.tight_layout()
+            plt.show()
+
+
 
     subgroup_cols = [
         c for c in null_df.columns

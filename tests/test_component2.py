@@ -81,7 +81,7 @@ def _make_component2_df_balanced(n_per_cell=120, seed=0):
 
 
 def test_analysis_estimation_standard_happy_path_fast():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     data = _make_component2_df(n=250, seed=1)
 
@@ -112,7 +112,7 @@ def test_analysis_estimation_standard_happy_path_fast():
 
 
 def test_missing_required_columns_raises_valueerror():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     data = _make_component2_df(n=50, seed=2).drop(columns=["S_prob"])
 
@@ -126,7 +126,7 @@ def test_missing_required_columns_raises_valueerror():
 
 
 def test_nonbinary_Y_or_D_raises_valueerror():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     data = _make_component2_df(n=60, seed=3)
     data.loc[:5, "Y"] = 2  # introduce 3rd class
@@ -141,7 +141,7 @@ def test_nonbinary_Y_or_D_raises_valueerror():
 
 
 def test_missing_pi_xvars_raises_valueerror():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     data = _make_component2_df(n=80, seed=4).drop(columns=["x2"])
 
@@ -155,7 +155,7 @@ def test_missing_pi_xvars_raises_valueerror():
 
 
 def test_small_internal_missing_arguments_raises_valueerror():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     data = _make_component2_df(n=120, seed=5)
 
@@ -171,7 +171,7 @@ def test_small_internal_missing_arguments_raises_valueerror():
 
 
 def test_small_borrow_missing_external_requirements_raises_valueerror():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     data = _make_component2_df(n=120, seed=6)
 
@@ -192,7 +192,7 @@ def test_small_borrow_missing_external_requirements_raises_valueerror():
 
 
 def test_gen_null_adds_table_null_key_fast():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     data = _make_component2_df(n=180, seed=7)
 
@@ -212,7 +212,7 @@ def test_gen_null_adds_table_null_key_fast():
 
 
 def test_bootstrap_rescaled_adds_boot_out_key_fast():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     data = _make_component2_df_balanced(n_per_cell=120, seed=8)  # 480 rows total
 

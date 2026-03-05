@@ -9,13 +9,7 @@ from .helpers import _as_str_groups, _clip_probs, choose_threshold_youden, _add_
 
 
 
-#-------Cross-fitting & muY outputs -----------
-
-
-from sklearn.base import clone
-import numpy as np
-import pandas as pd
-from .helpers import _as_str_groups, choose_threshold_youden, make_outcome_estimator
+#-------Cross-fitting & muY outputs ----------
 
 def build_outcome_models_and_scores_fixed_split(
     train_df: pd.DataFrame,

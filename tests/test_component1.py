@@ -43,7 +43,7 @@ def _make_synth_df(n=200, seed=0):
 
 
 def test_evaluate_intersectional_fairness_basic_run_no_plots():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     df = _make_synth_df(n=250, seed=1)
 
@@ -77,7 +77,7 @@ def test_evaluate_intersectional_fairness_basic_run_no_plots():
 
 
 def test_min_group_size_filters_small_groups_and_records_drops():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     df = _make_synth_df(n=180, seed=2)
 
@@ -103,7 +103,7 @@ def test_min_group_size_filters_small_groups_and_records_drops():
 
 
 def test_require_class_balance_filters_single_class_groups_on_test_fold():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     df = _make_synth_df(n=220, seed=3)
 
@@ -130,7 +130,7 @@ def test_require_class_balance_filters_single_class_groups_on_test_fold():
 
 
 def test_all_nan_feature_is_dropped_not_crashing():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     df = _make_synth_df(n=160, seed=4)
     df["all_nan"] = np.nan
@@ -151,7 +151,7 @@ def test_all_nan_feature_is_dropped_not_crashing():
 
 
 def test_missing_required_columns_raises_keyerror():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     df = _make_synth_df(n=50, seed=5).drop(columns=["sex"])
 
@@ -166,7 +166,7 @@ def test_missing_required_columns_raises_keyerror():
 
 
 def test_no_usable_features_raises_valueerror():
-    import iftoolkit as ift
+    import FairLogue as ift
 
     df = _make_synth_df(n=60, seed=6)
 

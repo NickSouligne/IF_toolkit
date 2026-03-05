@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "iftoolkit"
+name = "FairLogue"
 version = "0.1.0"
 description = "Intersectional Fairness Toolkit with counterfactual estimation, modeling, and u-value inference."
 readme = "README.md"
@@ -38,7 +38,7 @@ docs = [
 ]
 
 [project.scripts]
-iftoolkit = "iftoolkit.cli.main:app"
+Fairlogue = "Fairlogue.cli.main:app"
 
 [tool.setuptools.packages.find]
 where = ["."]

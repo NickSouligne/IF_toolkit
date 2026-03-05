@@ -1,5 +1,5 @@
 """
-Intersectional Fairness Toolkit (iftoolkit)
+Intersectional Fairness Toolkit (Fairlogue)
 
 Top-level public API aggregating Components 1–3.
 
@@ -9,7 +9,7 @@ Naming convention:
 - cf_*   : Component 3 (Counterfactual IF no treatment)
 
 Users can still import component-specific APIs via:
-    from iftoolkit.component2 import get_defs_analysis
+    from fairlogue.component2 import get_defs_analysis
 """
 
 
