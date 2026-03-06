@@ -380,6 +380,6 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
     except Exception:
         pass
 
-    return est_summaries, table_null_delta, table_uval
+    return est_summaries, table_null_delta, table_uval, d 
 
 
