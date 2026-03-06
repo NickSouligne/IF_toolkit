@@ -257,7 +257,8 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
                 ax.grid(True, linewidth=0.5, alpha=0.4)
                 ax.legend(frameon=True, fontsize=10)
 
-            ax.axvline(delta_uval, linestyle=":", linewidth=1)
+            for ax in axes:
+                ax.axvline(delta_uval, linestyle=":", linewidth=1)
             axes[0].set_ylabel("ECDF")
             plt.tight_layout()
             plt.show()
@@ -380,6 +381,6 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
     except Exception:
         pass
 
-    return est_summaries, table_null_delta, table_uval, d 
+    return est_summaries, table_null_delta, table_uval, group_null_long
 
 
