@@ -7,7 +7,7 @@ name = "FairLogue"
 version = "0.1.0"
 description = "Intersectional Fairness Toolkit with counterfactual estimation, modeling, and u-value inference."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [{ name = "Nick S." }]
 dependencies = [
   # Core scientific stack (bounded for Py3.9–3.12)

@@ -237,7 +237,7 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
                 (axes[1], pos_stats, "Positive"),
             ]:
                 ax.axvline(0.0, linestyle="--", linewidth=1)
-                ax.set_title(f"ECDF of Obs − Null ({panel_title})")
+                ax.set_title(f"ECDF of Obversed vs Counterfactual Scenario Disparities ({panel_title})")
                 ax.set_xlabel("Obs. − Null")
                 ax.set_ylim(0, 1)
 
