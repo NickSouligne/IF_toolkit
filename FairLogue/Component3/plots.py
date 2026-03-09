@@ -236,7 +236,7 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
                 (axes[0], neg_stats, "Negative"),
                 (axes[1], pos_stats, "Positive"),
             ]:
-                ax.axvline(0.0, linestyle="--", linewidth=1)
+                ax.axvline(delta_uval, linestyle=":", linewidth=1)
                 ax.set_title(f"ECDF of Observed vs Counterfactual Disparities ({panel_title})")
                 ax.set_xlabel("Obs. − Null")
                 ax.set_ylim(0, 1)
@@ -257,8 +257,7 @@ def get_plots(results: Dict[str, object], sampsize: Optional[int] = None, alpha:
                 ax.grid(True, linewidth=0.5, alpha=0.4)
                 ax.legend(frameon=True, fontsize=10)
 
-            for ax in axes:
-                ax.axvline(delta_uval, linestyle=":", linewidth=1)
+
             axes[0].set_ylabel("ECDF")
             plt.tight_layout()
             plt.show()
